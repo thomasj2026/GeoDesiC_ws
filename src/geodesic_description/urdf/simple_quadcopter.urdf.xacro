@@ -1,0 +1,207 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="small_quadcopter">
+
+   <!-- Params -->
+
+    <!-- Body -->
+    <xacro:property name="body_length" value="0.12"/>
+    <xacro:property name="body_width"  value="0.12"/>
+    <xacro:property name="body_height" value="0.04"/>
+    <xacro:property name="body_mass"   value="0.40"/>
+
+    <!-- Arms -->
+    <xacro:property name="arm_length"    value="0.18"/>
+    <xacro:property name="arm_width"     value="0.015"/>
+    <xacro:property name="arm_height"    value="0.015"/>
+    <xacro:property name="arm_offset"    value="0.1"/>
+
+    <!-- Rotors -->
+    <xacro:property name="rotor_radius"    value="0.06"/>
+    <xacro:property name="rotor_thickness" value="0.005"/>
+    <xacro:property name="rotor_offset"    value="0.15"/>
+
+
+    <!-- Materials/Appearance -->
+
+    <material name="body_color">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+    </material>
+
+    <material name="arm_color">
+        <color rgba="0.5 0.5 0.5 1.0"/>
+    </material>
+
+    <material name="rotor_color">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+    </material>
+
+    <!-- Base Link -->
+
+    <link name="base_link">
+
+        <visual>
+            <geometry>
+                <box size="${body_length} ${body_width} ${body_height}"/>
+            </geometry>
+
+            <material name="body_color"/>
+        </visual>
+
+        <collision>
+            <geometry>
+                <box size="${body_length} ${body_width} ${body_height}"/>
+            </geometry>
+        </collision>
+
+        <inertial>
+            <mass value="${body_mass}"/>
+
+            <inertia
+                ixx="0.002"
+                ixy="0.0"
+                ixz="0.0"
+                iyy="0.002"
+                iyz="0.0"
+                izz="0.003"/>
+        </inertial>
+
+    </link>
+
+    <link name="imu"/>
+
+    <joint name="base_link_to_imu" type="fixed">
+        <parent link="base_link"/>
+        <child link="imu"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+
+
+    <!-- Arm Macro -->
+
+    <xacro:macro name="arm" params="name x y yaw">
+
+        <link name="${name}_arm">
+
+            <visual>
+                <geometry>
+                    <box size="${arm_length} ${arm_width} ${arm_height}"/>
+                </geometry>
+
+                <material name="arm_color"/>
+            </visual>
+
+            <collision>
+                <geometry>
+                    <box size="${arm_length} ${arm_width} ${arm_height}"/>
+                </geometry>
+            </collision>
+
+        </link>
+
+        <joint name="${name}_arm_joint" type="fixed">
+
+            <parent link="base_link"/>
+            <child link="${name}_arm"/>
+
+            <origin
+                xyz="${x} ${y} 0"
+                rpy="0 0 ${yaw}"/>
+
+        </joint>
+
+    </xacro:macro>
+
+
+    <!-- Rotor Macro -->
+
+    <xacro:macro name="rotor" params="name x y">
+
+        <link name="${name}_rotor">
+
+            <visual>
+                <geometry>
+                    <cylinder
+                        radius="${rotor_radius}"
+                        length="${rotor_thickness}"/>
+                </geometry>
+
+                <material name="rotor_color"/>
+            </visual>
+
+            <collision>
+                <geometry>
+                    <cylinder
+                        radius="${rotor_radius}"
+                        length="${rotor_thickness}"/>
+                </geometry>
+            </collision>
+
+        </link>
+
+        <joint name="${name}_rotor_joint" type="continuous">
+
+            <parent link="base_link"/>
+            <child link="${name}_rotor"/>
+
+            <origin
+                xyz="${x} ${y} ${body_height / 2}"
+                rpy="0 0 0"/>
+
+            <axis xyz="0 0 1"/>
+
+        </joint>
+
+    </xacro:macro>
+
+
+    <!-- Initialize 4 arms -->
+
+    <xacro:arm
+        name="front_left"
+        x="${arm_offset}"
+        y="${arm_offset}"
+        yaw="${pi / 4}"/>
+
+    <xacro:arm
+        name="front_right"
+        x="${arm_offset}"
+        y="${-arm_offset}"
+        yaw="${-pi / 4}"/>
+
+    <xacro:arm
+        name="rear_left"
+        x="${-arm_offset}"
+        y="${arm_offset}"
+        yaw="${-pi / 4}"/>
+
+    <xacro:arm
+        name="rear_right"
+        x="${-arm_offset}"
+        y="${-arm_offset}"
+        yaw="${pi / 4}"/>
+
+
+    <!-- Initialize 4 rotors -->
+
+    <xacro:rotor
+        name="front_left"
+        x="${rotor_offset}"
+        y="${rotor_offset}"/>
+
+    <xacro:rotor
+        name="front_right"
+        x="${rotor_offset}"
+        y="${-rotor_offset}"/>
+
+    <xacro:rotor
+        name="rear_left"
+        x="${-rotor_offset}"
+        y="${rotor_offset}"/>
+
+    <xacro:rotor
+        name="rear_right"
+        x="${-rotor_offset}"
+        y="${-rotor_offset}"/>
+
+</robot>
