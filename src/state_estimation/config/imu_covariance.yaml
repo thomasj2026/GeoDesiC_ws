@@ -1,0 +1,30 @@
+imu_covariance_node:
+  ros__parameters:
+
+    input_topic: /imu/data
+    output_topic: /imu/data_cov
+
+    # Short-term roll/pitch covariance measured from the stationary bag.
+    #
+    # Yaw is intentionally much larger because Madgwick is running
+    # without magnetometer input, so yaw has no absolute heading
+    # reference and can drift over time.
+    orientation_covariance: [
+      8.1336e-07, 0.0, 0.0,
+      0.0, 8.0861e-07, 0.0,
+      0.0, 0.0, 7.6154e-03
+    ]
+
+    angular_velocity_covariance: [
+      1.4072e-05, 0.0, 0.0,
+      0.0, 2.4880e-05, 0.0,
+      0.0, 0.0, 1.9166e-05
+    ]
+
+    # Not currently fused by robot_localization, but populated
+    # so the sensor_msgs/Imu message is internally meaningful.
+    linear_acceleration_covariance: [
+      8.1368e-04, 0.0, 0.0,
+      0.0, 9.3784e-04, 0.0,
+      0.0, 0.0, 1.0285e-03
+    ]

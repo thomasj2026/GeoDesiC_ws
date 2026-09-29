@@ -1,56 +1,27 @@
-import os
+# filter.launch.py is the bringup file for the orientation state estimatuon of the IMU bagged data
 
+import os
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess
+from launch.actions import ExecuteProcess, TimerAction, RegisterEventHandler, EmitEvent
+from launch.event_handlers import OnProcessExit
+from launch.events import Shutdown
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
 
-    package_dir = get_package_share_directory('state_estimation')
+    # Created file directories 
+    state_dir = get_package_share_directory('state_estimation')
 
-    # Path to our robot_localization configuration file
-    ekf_config = os.path.join(
-        package_dir,
-        'config',
-        'orientation_ekf.yaml'
-    )
-
+    # Paths to EKF confiugration and URDF model
+    ekf_config = os.path.join(state_dir,'config', 'orientation_ekf.yaml')
+    covariance_config = os.path.join(state_dir, 'config', 'imu_covariance.yaml')
+    
+    # Path to bagged data
     bag_path = '/home/tommy/GeoDesiC_ws/src/bagged_data/rosbag2_2026_09_24-15_50_32_0.mcap'
 
-    bag_player = ExecuteProcess(
-        cmd=[
-            'ros2',
-            'bag',
-            'play',
-            bag_path,
-            '--clock'
-        ],
-        output='screen'
-    )
-    
-    imu_static_transform = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='imu_static_transform_publisher',
-        parameters=[{
-            'use_sim_time': True
-        }],
-        arguments=[
-            '--x', '0.0',
-            '--y', '0.0',
-            '--z', '0.0',
-            '--roll', '0.0',
-            '--pitch', '0.0',
-            '--yaw', '0.0',
-            '--frame-id', 'base_link',
-            '--child-frame-id', 'imu'
-        ],
-        output='screen'
-    )
-
-
+    # Use madgwick filter to estimate orientation of IMU in quarternions
     madgwick_filter = Node(
         package='imu_filter_madgwick',
         executable='imu_filter_madgwick_node',
@@ -58,9 +29,9 @@ def generate_launch_description():
         output='screen',
 
         parameters=[{
-            'use_mag': False,
-            'use_sim_time': True,
-            'publish_tf': False
+            'use_mag': False,       # No magnetometer
+            'use_sim_time': True,   # Want to utilize the bagged data clock so nothing is "out of sync"
+            'publish_tf': False     # Turn off tf publisher or else it conflicts with robot_state_publisher
         }],
 
         remappings=[
@@ -69,7 +40,7 @@ def generate_launch_description():
         ]
     )
 
-
+    # Initalize our Extended Kalman Filter Node
     ekf = Node(
         package='robot_localization',
         executable='ekf_node',
@@ -78,13 +49,45 @@ def generate_launch_description():
 
         parameters=[
             ekf_config,
+            {'use_sim_time': True}      # Use the bagged data time frame
+        ]
+    )
+    
+    imu_covariance_node = Node(
+        package = 'state_estimation',
+        executable = 'imu_covariance_node.py',
+        name = 'imu_covariance_node',
+        output = 'screen',
+        parameters = [
+            covariance_config,
             {'use_sim_time': True}
         ]
     )
+    
+    # The actual bag process
+    bag_process = ExecuteProcess(
+        cmd=['ros2', 'bag', 'play', bag_path, '--clock', '100'],
+        output='screen'
+    )
+
+    # Delay the bag so RViz and the filters are ready
+    bag_player = TimerAction(
+        period=3.0,
+        actions=[bag_process]
+    )
+
+    # When the bag process finishes, shut down this whole launch
+    shutdown_on_bag_end = RegisterEventHandler(
+        OnProcessExit(
+            target_action=bag_process,
+            on_exit=[EmitEvent(event=Shutdown(reason='bag finished'))]
+        )
+    )
 
     return LaunchDescription([
-        imu_static_transform,
         madgwick_filter,
         ekf,
-        bag_player
+        imu_covariance_node,
+        bag_player,
+        shutdown_on_bag_end,
     ])
